@@ -8,24 +8,25 @@
 /* <Help>
 Usage: wperf URL [OPTIONS...]
 
-	--max 1000        Total number of requests to send.
-	--threads 1       Number of concurrent threads to use.
-	--keepalive 0     Use HTTP Keep-Alive sockets.
-	--throttle 0      Limit request rate to N per sec.
-	--timeout 5       Timeout for each request in seconds.
-	--fatal 0         Abort on first HTTP error.
-	--verbose 0       Print metrics for every request.
-	--warn 1.0        Emit warnings at N seconds and longer.
-	--cache_dns 0     Cache DNS for duration of run.
-	--compress 1      Allow compressed responses.
-	--follow          Follow HTTP 3xx redirects.
-	--retries 5	      Retry errors N times.
-	--auth "U:P"      HTTP Basic Auth (username:password).
-	--useragent "Foo" Custom User-Agent string.
-	--h_X-Test "foo"  Add any HTTP request headers.
-	--method get      Specify HTTP request method.
-	--f_file1 "1.txt" Attach file to HTTP POST request.
-	--data "foo=bar"  Provide raw HTTP POST data.
+	--max 1000        		Total number of requests to send.
+	--threads 1       		Number of concurrent threads to use.
+	--keepalive 0     		Use HTTP Keep-Alive sockets.
+	--throttle 0      		Limit request rate to N per sec.
+	--timeout 5       		Timeout for each request in seconds.
+	--fatal 0         		Abort on first HTTP error.
+	--verbose 0       		Print metrics for every request.
+	--warn 1.0        		Emit warnings at N seconds and longer.
+	--cache_dns 0     		Cache DNS for duration of run.
+	--compress 1      		Allow compressed responses.
+	--follow          		Follow HTTP 3xx redirects.
+	--retries 5	      		Retry errors N times.
+	--auth "U:P"      		HTTP Basic Auth (username:password).
+	--useragent "Foo" 		Custom User-Agent string.
+	--h_X-Test "foo"  		Add any HTTP request headers.
+	--method get      		Specify HTTP request method.
+	--f_file1 "1.txt" 		Attach file to HTTP POST request.
+	--data "foo=bar"  		Provide raw HTTP POST data.
+	--logging "foobar.log"	Log file to output results to.
 
 Hit Ctrl-Z during run to see progress reports.
 For more info: https://github.com/jhuckaby/wperf
@@ -57,10 +58,7 @@ if (!args.other || !args.other.length || args.help) {
 }
 var url = args.other.shift();
 
-print("\n");
-print( bold.magenta("WebPerf (wperf) v" + package.version) + "\n" );
-print( gray.bold("Date/Time: ") + gray((new Date()).toString() ) + "\n" );
-
+var configuration = null;
 // first argument may be config file
 if (!url.match(/^\w+\:\/\//) && fs.existsSync(url)) {
 	var config = null;
@@ -71,7 +69,7 @@ if (!url.match(/^\w+\:\/\//) && fs.existsSync(url)) {
 	if (!config.url) {
 		die("Configuration file is missing required 'url' property: " + url + "\n");
 	}
-	print( gray.bold("Configuration: ") + gray(url) + "\n" );
+	configuration = url;
 	url = args.url || config.url;
 	for (var key in config) {
 		if (!(key in args)) args[key] = config[key];
@@ -90,11 +88,23 @@ var warn_ms = warn_sec * 1000;
 var allow_compress = ("compress" in args) ? args.compress : 1;
 var keep_alive = args.keepalive || args.keepalives || false;
 var method = (args.method || 'get').toLowerCase();
+var logging = args.logging || null;
 
 // optionally disable all ANSI color
 if (("color" in args) && !args.color) {
 	cli.chalk.enabled = false;
 }
+
+if(logging) {
+	cli.setLogFile(logging);
+}
+
+print("\n");
+print( bold.magenta("WebPerf (wperf) v" + package.version) + "\n" );
+print( gray.bold("Date/Time: ") + gray((new Date()).toString() ) + "\n" );
+
+if(configuration)
+print( gray.bold("Configuration: ") + gray(configuration) + "\n" );
 
 if (args.params) print( gray.bold("Base "));
 print( gray.bold("URL: ") + gray(url + " (" + method.toUpperCase() + ")") + "\n" );
@@ -102,6 +112,9 @@ print( gray.bold("URL: ") + gray(url + " (" + method.toUpperCase() + ")") + "\n"
 // print( gray( bold("Method: ") + method.toUpperCase()) + "\n" );
 print( gray.bold("Keep-Alives: ") + gray(keep_alive ? 'Enabled' : 'Disabled') + "\n" );
 print( gray.bold("Threads: ") + gray(max_threads) + "\n" );
+
+if(logging)
+print( gray.bold("Logging: ") + gray(logging ? "Enabled (" + logging + ")" : "Disabled") + "\n" );
 
 // setup histogram system
 var histo = {};
@@ -329,8 +342,7 @@ var printReport = function() {
 	} ); // forEach
 	
 	print( "\n" );
-	print( bold("Performance Metrics:") + "\n" );
-	print( table(rows, { textStyles: ["green"] }) + "\n" );
+	print( bold("Performance Metrics:") + "\n" + table(rows, { textStyles: ["green"] }) + "\n");
 	
 	// histograms
 	labels.forEach( function(label) {
@@ -367,8 +379,7 @@ var printReport = function() {
 		});
 		
 		print("\n");
-		print( bold(label + " Time Histogram:") + "\n" );
-		print( table(rows, {}) + "\n" );
+		print( bold(label + " Time Histogram:") + "\n" + table(rows, {}) + "\n" );
 	}); // histos
 	
 	print( "\n" );
